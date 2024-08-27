@@ -58,3 +58,7 @@ As a best practice, it is advised to create a virtual environment to store this 
     ```bash
     uvicorn main:app
     ```
+7. Run message consumer
+    ```bash
+    python consumer.py
+    ```
