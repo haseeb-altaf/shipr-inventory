@@ -30,6 +30,7 @@ class Product(HashModel):
 
     class Meta:
         database = redis
+        model_key_prefix = "product"
 
 def format_product(pk: str):
     product = Product.get(pk)
