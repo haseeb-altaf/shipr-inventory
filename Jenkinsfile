@@ -2,46 +2,38 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_CREDENTIALS_ID = 'docker-hub-credentials' 
-        DOCKER_HUB_REPO = 'haseeb497/project' 
-        IMAGE_NAME = "${DOCKER_HUB_REPO}:inventory-develop-${env.BUILD_NUMBER}"
+        DOCKER_IMAGE = "haseeb497/project:inventory-${BRANCH_NAME}-${BUILD_NUMBER}"
+        DOCKER_CREDENTIALS_ID = 'docker-hub-credentials'
     }
 
     stages {
-        stage('Checkout') {
-            steps {
-                checkout scm
-            }
-        }
-
-        stage('Build Docker Image') {
+        stage('Checkout Code') {
             steps {
                 script {
-                    echo "Building Docker image: ${IMAGE_NAME}"
-                    sh "docker build -t ${IMAGE_NAME} ."
+                    def userBranch = input message: 'Select the branch to build', ok: 'Build', parameters: [string(name: 'BRANCH_NAME', defaultValue: 'develop', description: 'Branch to build')]
+                    env.BRANCH_NAME = userBranch
                 }
+
+                checkout([$class: 'GitSCM', branches: [[name: "${BRANCH_NAME}"]], 
+                userRemoteConfigs: [[url: 'https://github.com/haseeb-altaf/shipr-inventory.git']]])
             }
         }
 
-        stage('Push Docker Image') {
+        stage('Docker Build') {
             steps {
-                script {
-                    echo "Pushing Docker image: ${IMAGE_NAME} to Docker Hub"
-                    withCredentials([usernamePassword(credentialsId: DOCKER_CREDENTIALS_ID, usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-                        sh "echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin"
-                        sh "docker push ${IMAGE_NAME}"
-                    }
-                }
+
+                sh "docker build -t ${DOCKER_IMAGE} ."
             }
         }
-    }
 
-    post {
-        success {
-            echo "Pipeline executed successfully. Docker image ${IMAGE_NAME} has been pushed to Docker Hub."
-        }
-        failure {
-            echo "Pipeline failed. Please check the logs."
+        stage('Docker Push') {
+            steps {
+
+                withCredentials([usernamePassword(credentialsId: env.DOCKER_CREDENTIALS_ID, usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    sh "echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin"
+                    sh "docker push ${DOCKER_IMAGE}"
+                }
+            }
         }
     }
 }
